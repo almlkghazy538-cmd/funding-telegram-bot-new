@@ -1,7 +1,7 @@
 """
 🤖 بوت تمويل القنوات - النسخة النهائية الكاملة
 مطور خصيصاً للمدير: 6130994941
-مع جميع المميزات المطلوبة + نظام بقاء نشط
+يعمل 24/7 مع نظام بقاء نشط
 """
 
 # ==================== 📥 استيراد المكتبات ====================
@@ -11,13 +11,13 @@ import logging
 import json
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
 from threading import Thread
 import requests
+import sys
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from telegram.error import TelegramError, UserPrivacyRestrictedError
+from telegram.error import TelegramError  # ✅ تم التصحيح هنا
 
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, BigInteger, DateTime, Text, func, desc
 from sqlalchemy.ext.declarative import declarative_base
@@ -57,7 +57,7 @@ class Config:
     PORT = 8080
     
     # 🔄 نظام البقاء نشط
-    KEEP_ALIVE_INTERVAL = 300  # كل 5 دقائق
+    KEEP_ALIVE_INTERVAL = 60  # كل دقيقة
 
 # ==================== 🗄️ قاعدة البيانات ====================
 Base = declarative_base()
@@ -199,66 +199,110 @@ def init_database():
         
         db.commit()
         print("✅ تم تهيئة قاعدة البيانات بنجاح")
+        return True
     except Exception as e:
         print(f"❌ خطأ في تهيئة قاعدة البيانات: {e}")
         db.rollback()
+        return False
     finally:
         db.close()
 
-# ==================== 🔄 نظام البقاء نشط ====================
-class KeepAlive:
-    """نظام للحفاظ على نشاط البوت على السيرفرات المجانية"""
+# ==================== 🔄 نظام البقاء نشط المتقدم ====================
+class AdvancedKeepAlive:
+    """نظام متقدم للحفاظ على نشاط البوت 24/7"""
     
-    @staticmethod
-    def start_keep_alive_server():
-        """بدء خادم ويب صغير"""
+    def __init__(self, bot_token, admin_id):
+        self.bot_token = bot_token
+        self.admin_id = admin_id
+        self.base_url = f"https://api.telegram.org/bot{bot_token}"
+    
+    async def send_keep_alive_message(self):
+        """إرسال رسالة بقاء نشط للمدير"""
+        try:
+            # إرسال رسالة صغيرة غير مزعجة
+            message = f"🟢 البوت نشط | {datetime.now().strftime('%H:%M:%S')}"
+            url = f"{self.base_url}/sendMessage"
+            payload = {
+                'chat_id': self.admin_id,
+                'text': message,
+                'disable_notification': True
+            }
+            response = requests.post(url, json=payload, timeout=10)
+            
+            if response.status_code == 200:
+                print(f"✅ تم إرسال إشارة البقاء نشط: {datetime.now().strftime('%H:%M:%S')}")
+                return True
+            else:
+                print(f"⚠️ فشل إرسال إشارة: {response.status_code}")
+                return False
+        except Exception as e:
+            print(f"⚠️ خطأ في إرسال إشارة البقاء نشط: {e}")
+            return False
+    
+    def start_web_server(self):
+        """تشغيل خادم ويب صغير لـ Render"""
         app = Flask(__name__)
         
         @app.route('/')
         def home():
-            return "🤖 البوت يعمل بنجاح | " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return "🤖 بوت تمويل القنوات يعمل بنجاح | " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         @app.route('/health')
         def health():
-            return {"status": "active", "timestamp": datetime.now().isoformat()}
+            return {
+                "status": "active",
+                "service": "telegram-funding-bot",
+                "timestamp": datetime.now().isoformat(),
+                "admin_id": Config.ADMIN_ID
+            }
         
-        def run():
-            app.run(host='0.0.0.0', port=Config.PORT)
+        @app.route('/ping')
+        def ping():
+            return "pong"
         
-        Thread(target=run, daemon=True).start()
+        @app.route('/keep-alive', methods=['POST', 'GET'])
+        def keep_alive():
+            # محاولة إرسال إشارة عبر خيط منفصل
+            Thread(target=lambda: asyncio.run(self.send_keep_alive_message())).start()
+            return "Keep-alive signal sent"
+        
+        def run_server():
+            app.run(host='0.0.0.0', port=Config.PORT, debug=False, threaded=True)
+        
+        # تشغيل الخادم في خيط منفصل
+        server_thread = Thread(target=run_server, daemon=True)
+        server_thread.start()
         print(f"✅ خادم البقاء نشط يعمل على المنفذ {Config.PORT}")
+        
+        # بدء الإشارات الدورية
+        self.start_periodic_signals()
     
-    @staticmethod
-    async def send_keep_alive_ping(bot):
-        """إرسال رسالة ping للبوت نفسه كل 5 دقائق"""
-        try:
-            # إرسال أمر /start للبوت نفسه
-            await bot.send_message(
-                chat_id=Config.ADMIN_ID,
-                text=f"🔄 ping - {datetime.now().strftime('%H:%M:%S')}"
-            )
-            print(f"✅ تم إرسال ping في {datetime.now().strftime('%H:%M:%S')}")
-        except Exception as e:
-            print(f"⚠️ فشل إرسال ping: {e}")
-    
-    @staticmethod
-    def start_scheduler(bot):
-        """بدء المجدول لإرسال ping دوري"""
+    def start_periodic_signals(self):
+        """بدء إشارات دورية كل دقيقة"""
+        def send_signal():
+            asyncio.run(self.send_keep_alive_message())
+        
+        # إنشاء مجدول للإشارات
         scheduler = BackgroundScheduler()
-        
-        async def ping_job():
-            await KeepAlive.send_keep_alive_ping(bot)
-        
-        # جدولة ping كل 5 دقائق
-        scheduler.add_job(
-            lambda: asyncio.run(ping_job()),
-            'interval',
-            minutes=5,
-            id='keep_alive_ping'
-        )
-        
+        scheduler.add_job(send_signal, 'interval', minutes=1, id='keep_alive_signal')
         scheduler.start()
-        print("✅ تم تشغيل مجدول البقاء نشط (كل 5 دقائق)")
+        print("✅ تم تشغيل الإشارات الدورية (كل دقيقة)")
+    
+    async def check_bot_status(self):
+        """فحص حالة البوت"""
+        try:
+            url = f"{self.base_url}/getMe"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('ok'):
+                    print(f"✅ حالة البوت: نشط | @{data['result']['username']}")
+                    return True
+            print("❌ حالة البوت: غير نشط")
+            return False
+        except Exception as e:
+            print(f"⚠️ خطأ في فحص حالة البوت: {e}")
+            return False
 
 # ==================== 🤖 فئة البوت الرئيسية ====================
 class TelegramFundingBot:
@@ -268,10 +312,11 @@ class TelegramFundingBot:
         self.config = Config
         self.db = get_db
         self.application = None
-        self.keep_alive = KeepAlive()
+        self.keep_alive = AdvancedKeepAlive(Config.BOT_TOKEN, Config.ADMIN_ID)
+        self.is_running = False
         
     # ==================== 🔧 دوال المساعدة ====================
-    def extract_channel_id(self, link: str) -> Optional[str]:
+    def extract_channel_id(self, link: str):
         """استخراج معرف القناة من الرابط"""
         if link.startswith('@'):
             return link
@@ -285,7 +330,7 @@ class TelegramFundingBot:
                     return '@' + channel_part
         return None
     
-    async def check_mandatory_channels(self, user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    async def check_mandatory_channels(self, user_id: int, context: ContextTypes.DEFAULT_TYPE):
         """التحقق من اشتراك المستخدم في القنوات الإجبارية"""
         db = self.db()
         try:
@@ -301,7 +346,7 @@ class TelegramFundingBot:
         finally:
             db.close()
     
-    async def check_maintenance(self, update: Update) -> bool:
+    async def check_maintenance(self, update: Update):
         """التحقق من وضع الصيانة"""
         db = self.db()
         try:
@@ -317,7 +362,7 @@ class TelegramFundingBot:
             db.close()
     
     # ==================== 👤 معالجة المستخدمين ====================
-    async def register_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[User]:
+    async def register_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """تسجيل مستخدم جديد"""
         user_id = update.effective_user.id
         db = self.db()
@@ -390,7 +435,7 @@ class TelegramFundingBot:
         # عرض القائمة الرئيسية
         await self.show_main_menu(update, context, user)
     
-    async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user: User):
+    async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user):
         """عرض القائمة الرئيسية"""
         welcome_text = f"""
 👋 أهلاً بك {user.first_name}!
@@ -1565,12 +1610,11 @@ class TelegramFundingBot:
                         # تأخير بين كل إضافة لتجنب الحظر
                         await asyncio.sleep(Config.ADD_MEMBERS_DELAY)
                         
-                    except UserPrivacyRestrictedError:
-                        print(f"⚠️ العضو {member.user.id} مقيد الخصوصية")
-                        continue
-                        
                     except TelegramError as e:
-                        if "USER_ALREADY_PARTICIPANT" in str(e):
+                        if "USER_PRIVACY_RESTRICTED" in str(e):
+                            print(f"⚠️ العضو {member.user.id} مقيد الخصوصية")
+                            continue
+                        elif "USER_ALREADY_PARTICIPANT" in str(e):
                             print(f"✅ العضو {member.user.id} موجود بالفعل")
                             added_count += 1
                         elif "USER_NOT_MUTUAL_CONTACT" in str(e):
@@ -1601,7 +1645,7 @@ class TelegramFundingBot:
                         break
                     
                     # استبعاد البوتات والمشرفين
-                    if not member.user.is_bot and member.status == 'member':
+                    if not member.user.is_boot and member.status == 'member':
                         members.append(member)
             
             except Exception as e:
@@ -1648,11 +1692,17 @@ class TelegramFundingBot:
         
         # تهيئة قاعدة البيانات
         print("🔄 جاري تهيئة قاعدة البيانات...")
-        init_database()
+        if not init_database():
+            print("❌ فشل تهيئة قاعدة البيانات!")
+            return
         
-        # بدء خدمات البقاء نشط
-        self.keep_alive.start_keep_alive_server()
-        print("✅ تم تشغيل خدمات البقاء نشط")
+        # بدء خدمات البقاء نشط المتقدمة
+        self.keep_alive.start_web_server()
+        print("✅ تم تشغيل خدمات البقاء نشط المتقدمة")
+        
+        # فحص حالة البوت
+        print("🔍 فحص حالة البوت...")
+        await self.keep_alive.check_bot_status()
         
         # إنشاء تطبيق البوت
         print("🤖 جاري إنشاء تطبيق البوت...")
@@ -1668,13 +1718,34 @@ class TelegramFundingBot:
         # بدء البوت
         print("🚀 جاري تشغيل البوت...")
         print(f"👑 المدير الرئيسي: {self.config.ADMIN_ID}")
-        print(f"🤖 اسم البوت: @{(await self.application.bot.get_me()).username}")
+        
+        # الحصول على معلومات البوت
+        try:
+            bot_info = await self.application.bot.get_me()
+            print(f"🤖 اسم البوت: @{bot_info.username}")
+            print(f"📛 اسم العرض: {bot_info.first_name}")
+        except Exception as e:
+            print(f"⚠️ خطأ في الحصول على معلومات البوت: {e}")
+        
+        # إرسال رسالة بدء التشغيل للمدير
+        try:
+            await self.application.bot.send_message(
+                Config.ADMIN_ID,
+                f"🚀 البوت بدأ التشغيل بنجاح!\n"
+                f"⏰ الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"🤖 البوت: @{bot_info.username if 'bot_info' in locals() else 'غير معروف'}\n\n"
+                f"✅ النظام يعمل الآن 24/7 مع نظام البقاء نشط المتقدم."
+            )
+        except Exception as e:
+            print(f"⚠️ لم يتم إرسال رسالة البداية: {e}")
         
         # بدء معالجة الطلبات في الخلفية
         asyncio.create_task(self.process_pending_requests(self.application.bot))
         
-        # بدء مجدول البقاء نشط
-        self.keep_alive.start_scheduler(self.application.bot)
+        # بدء البوت
+        self.is_running = True
+        print("✅ البوت يعمل الآن بنجاح!")
+        print("⏰ نظام البقاء نشط يعمل (إشارة كل دقيقة)")
         
         # بدء الاستماع للتحديثات
         await self.application.run_polling(allowed_updates="all")
@@ -1691,8 +1762,21 @@ if __name__ == '__main__':
     bot = TelegramFundingBot()
     
     try:
+        print("=" * 50)
+        print("🤖 بوت تمويل القنوات - النسخة النهائية")
+        print("👑 مطور خصيصاً للمدير: 6130994941")
+        print("⏰ يعمل 24/7 مع نظام بقاء نشط متقدم")
+        print("=" * 50)
+        
         asyncio.run(bot.run())
     except KeyboardInterrupt:
-        print("\n👋 تم إيقاف البوت")
+        print("\n👋 تم إيقاف البوت يدوياً")
     except Exception as e:
         print(f"❌ خطأ غير متوقع: {e}")
+        print("🔄 جاري إعادة المحاولة خلال 10 ثواني...")
+        time.sleep(10)
+        # محاولة إعادة التشغيل تلقائياً
+        try:
+            asyncio.run(bot.run())
+        except:
+            print("❌ فشل إعادة التشغيل، يرجى التحقق من السيرفر")
