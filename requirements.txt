@@ -1,5 +1,5 @@
 python-telegram-bot==20.7
-sqlalchemy==2.0.30
+sqlalchemy==2.0.29
 apscheduler==3.10.4
 flask==2.3.3
 requests==2.31.0
