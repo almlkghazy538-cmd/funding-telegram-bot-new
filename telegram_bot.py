@@ -1,7 +1,5 @@
 """
-🤖 بوت تمويل القنوات - النسخة النهائية الكاملة
-مطور خصيصاً للمدير: 6130994941
-يعمل 24/7 مع نظام بقاء نشط
+🤖 بوت تمويل القنوات - النسخة النهائية المصححة
 """
 
 # ==================== 📥 استيراد المكتبات ====================
@@ -17,7 +15,7 @@ import sys
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from telegram.error import TelegramError  # ✅ تم التصحيح هنا
+from telegram.error import TelegramError  # ✅ تم التصحيح
 
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, BigInteger, DateTime, Text, func, desc
 from sqlalchemy.ext.declarative import declarative_base
@@ -29,35 +27,27 @@ from apscheduler.schedulers.background import BackgroundScheduler
 # ==================== ⚙️ الإعدادات ====================
 class Config:
     """إعدادات البوت"""
-    # 🔑 التوكن الخاص بالبوت
     BOT_TOKEN = "8436742877:AAGhCfnC9hbW7Sa4gMTroYissoljCjda9Ow"
-    
-    # 👑 المدير الرئيسي
     ADMIN_ID = 6130994941
-    
-    # 🗄️ قاعدة البيانات
     DATABASE_URL = "sqlite:///bot_database.db"
     
-    # ⚙️ إعدادات النظام
+    # إعدادات النظام
     MAINTENANCE_MODE = False
-    MAINTENANCE_MESSAGE = "🔧 البوت تحت الصيانة حالياً، الرجاء المحاولة لاحقاً."
+    MAINTENANCE_MESSAGE = "🔧 البوت تحت الصيانة"
     TRANSFER_FEE_PERCENT = 5
     TRANSFER_ENABLED = True
     
-    # ⭐ إعدادات النقاط
+    # إعدادات النقاط
     POINTS_PER_REFERRAL = 5
     DAILY_GIFT_POINTS = 3
     POINTS_PER_CHANNEL_SUB = 2
     MIN_POINTS_FOR_FUNDING = 25
     POINTS_PER_MEMBER = 25
     
-    # ⚡ إعدادات الأداء
+    # إعدادات الأداء
     MAX_MEMBERS_PER_REQUEST = 50
     ADD_MEMBERS_DELAY = 1
     PORT = 8080
-    
-    # 🔄 نظام البقاء نشط
-    KEEP_ALIVE_INTERVAL = 60  # كل دقيقة
 
 # ==================== 🗄️ قاعدة البيانات ====================
 Base = declarative_base()
@@ -143,7 +133,7 @@ class SystemSettings(Base):
     __tablename__ = 'system_settings'
     id = Column(Integer, primary_key=True)
     maintenance_mode = Column(Boolean, default=False)
-    maintenance_message = Column(Text, default='🔧 البوت تحت الصيانة حالياً')
+    maintenance_message = Column(Text, default='🔧 البوت تحت الصيانة')
     transfer_enabled = Column(Boolean, default=True)
     transfer_fee_percent = Column(Integer, default=5)
     updated_at = Column(DateTime, default=datetime.now)
@@ -164,7 +154,6 @@ Base.metadata.create_all(engine)
 SessionLocal = sessionmaker(bind=engine)
 
 def get_db():
-    """الحصول على جلسة قاعدة البيانات"""
     db = SessionLocal()
     try:
         return db
@@ -172,167 +161,110 @@ def get_db():
         db.close()
 
 def init_database():
-    """تهيئة قاعدة البيانات مع البيانات الأساسية"""
     db = get_db()
     try:
-        # إعدادات النظام
         if db.query(SystemSettings).count() == 0:
             settings = SystemSettings()
             db.add(settings)
         
-        # إعدادات النقاط
         if db.query(PointsSettings).count() == 0:
             points_settings = PointsSettings()
             db.add(points_settings)
         
-        # المدير الرئيسي
         admin_user = db.query(User).filter_by(user_id=Config.ADMIN_ID).first()
         if not admin_user:
             admin_user = User(
                 user_id=Config.ADMIN_ID,
                 username="admin",
-                first_name="👑 المدير الرئيسي",
+                first_name="👑 المدير",
                 is_admin=True,
                 admin_permissions='["all"]'
             )
             db.add(admin_user)
         
         db.commit()
-        print("✅ تم تهيئة قاعدة البيانات بنجاح")
+        print("✅ تم تهيئة قاعدة البيانات")
         return True
     except Exception as e:
-        print(f"❌ خطأ في تهيئة قاعدة البيانات: {e}")
+        print(f"❌ خطأ في قاعدة البيانات: {e}")
         db.rollback()
         return False
     finally:
         db.close()
 
-# ==================== 🔄 نظام البقاء نشط المتقدم ====================
-class AdvancedKeepAlive:
-    """نظام متقدم للحفاظ على نشاط البوت 24/7"""
+# ==================== 🔄 نظام البقاء نشط ====================
+class KeepAliveSystem:
+    """نظام البقاء نشط 24/7"""
     
     def __init__(self, bot_token, admin_id):
         self.bot_token = bot_token
         self.admin_id = admin_id
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
     
-    async def send_keep_alive_message(self):
-        """إرسال رسالة بقاء نشط للمدير"""
-        try:
-            # إرسال رسالة صغيرة غير مزعجة
-            message = f"🟢 البوت نشط | {datetime.now().strftime('%H:%M:%S')}"
-            url = f"{self.base_url}/sendMessage"
-            payload = {
-                'chat_id': self.admin_id,
-                'text': message,
-                'disable_notification': True
-            }
-            response = requests.post(url, json=payload, timeout=10)
-            
-            if response.status_code == 200:
-                print(f"✅ تم إرسال إشارة البقاء نشط: {datetime.now().strftime('%H:%M:%S')}")
-                return True
-            else:
-                print(f"⚠️ فشل إرسال إشارة: {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"⚠️ خطأ في إرسال إشارة البقاء نشط: {e}")
-            return False
-    
     def start_web_server(self):
-        """تشغيل خادم ويب صغير لـ Render"""
+        """تشغيل خادم ويب لـ Render"""
         app = Flask(__name__)
         
         @app.route('/')
         def home():
-            return "🤖 بوت تمويل القنوات يعمل بنجاح | " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return "🤖 البوت يعمل | " + datetime.now().strftime("%H:%M:%S")
         
         @app.route('/health')
         def health():
-            return {
-                "status": "active",
-                "service": "telegram-funding-bot",
-                "timestamp": datetime.now().isoformat(),
-                "admin_id": Config.ADMIN_ID
-            }
+            return {"status": "active", "time": datetime.now().isoformat()}
         
-        @app.route('/ping')
-        def ping():
-            return "pong"
+        def run():
+            app.run(host='0.0.0.0', port=Config.PORT, debug=False)
         
-        @app.route('/keep-alive', methods=['POST', 'GET'])
-        def keep_alive():
-            # محاولة إرسال إشارة عبر خيط منفصل
-            Thread(target=lambda: asyncio.run(self.send_keep_alive_message())).start()
-            return "Keep-alive signal sent"
-        
-        def run_server():
-            app.run(host='0.0.0.0', port=Config.PORT, debug=False, threaded=True)
-        
-        # تشغيل الخادم في خيط منفصل
-        server_thread = Thread(target=run_server, daemon=True)
+        server_thread = Thread(target=run, daemon=True)
         server_thread.start()
-        print(f"✅ خادم البقاء نشط يعمل على المنفذ {Config.PORT}")
-        
-        # بدء الإشارات الدورية
-        self.start_periodic_signals()
+        print(f"✅ خادم ويب يعمل على بورت {Config.PORT}")
     
-    def start_periodic_signals(self):
-        """بدء إشارات دورية كل دقيقة"""
-        def send_signal():
-            asyncio.run(self.send_keep_alive_message())
-        
-        # إنشاء مجدول للإشارات
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(send_signal, 'interval', minutes=1, id='keep_alive_signal')
-        scheduler.start()
-        print("✅ تم تشغيل الإشارات الدورية (كل دقيقة)")
-    
-    async def check_bot_status(self):
-        """فحص حالة البوت"""
+    async def send_ping(self):
+        """إرسال إشارة للمدير"""
         try:
-            url = f"{self.base_url}/getMe"
-            response = requests.get(url, timeout=10)
+            url = f"{self.base_url}/sendMessage"
+            payload = {
+                'chat_id': self.admin_id,
+                'text': f"🟢 ping | {datetime.now().strftime('%H:%M')}",
+                'disable_notification': True
+            }
+            response = requests.post(url, json=payload, timeout=5)
             if response.status_code == 200:
-                data = response.json()
-                if data.get('ok'):
-                    print(f"✅ حالة البوت: نشط | @{data['result']['username']}")
-                    return True
-            print("❌ حالة البوت: غير نشط")
-            return False
-        except Exception as e:
-            print(f"⚠️ خطأ في فحص حالة البوت: {e}")
-            return False
-
-# ==================== 🤖 فئة البوت الرئيسية ====================
-class TelegramFundingBot:
-    """الفئة الرئيسية للبوت"""
+                print(f"✅ إشارة ping أرسلت: {datetime.now().strftime('%H:%M:%S')}")
+        except:
+            pass
     
+    def start_ping_scheduler(self, bot):
+        """بدء إشارات ping دورية"""
+        async def ping_job():
+            await self.send_ping()
+        
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(lambda: asyncio.run(ping_job()), 'interval', minutes=2)
+        scheduler.start()
+        print("✅ مجدول ping يعمل (كل دقيقتين)")
+
+# ==================== 🤖 البوت الرئيسي ====================
+class TelegramBot:
     def __init__(self):
         self.config = Config
-        self.db = get_db
+        self.keep_alive = KeepAliveSystem(Config.BOT_TOKEN, Config.ADMIN_ID)
         self.application = None
-        self.keep_alive = AdvancedKeepAlive(Config.BOT_TOKEN, Config.ADMIN_ID)
-        self.is_running = False
-        
-    # ==================== 🔧 دوال المساعدة ====================
+    
+    # ==================== 🔧 دوال مساعدة ====================
     def extract_channel_id(self, link: str):
-        """استخراج معرف القناة من الرابط"""
         if link.startswith('@'):
             return link
         elif 't.me/' in link:
             parts = link.split('t.me/')
             if len(parts) > 1:
                 channel_part = parts[1].split('/')[0]
-                if channel_part.startswith('+'):
-                    return channel_part
-                else:
-                    return '@' + channel_part
+                return '@' + channel_part
         return None
     
     async def check_mandatory_channels(self, user_id: int, context: ContextTypes.DEFAULT_TYPE):
-        """التحقق من اشتراك المستخدم في القنوات الإجبارية"""
-        db = self.db()
+        db = get_db()
         try:
             channels = db.query(Channel).filter_by(is_mandatory=True).all()
             for channel in channels:
@@ -346,34 +278,16 @@ class TelegramFundingBot:
         finally:
             db.close()
     
-    async def check_maintenance(self, update: Update):
-        """التحقق من وضع الصيانة"""
-        db = self.db()
-        try:
-            settings = db.query(SystemSettings).first()
-            if settings and settings.maintenance_mode:
-                user = db.query(User).filter_by(user_id=update.effective_user.id).first()
-                # استثناء للمشرفين
-                if not user or not user.is_admin:
-                    await update.message.reply_text(settings.maintenance_message)
-                    return True
-            return False
-        finally:
-            db.close()
-    
-    # ==================== 👤 معالجة المستخدمين ====================
+    # ==================== 👤 تسجيل المستخدم ====================
     async def register_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """تسجيل مستخدم جديد"""
         user_id = update.effective_user.id
-        db = self.db()
+        db = get_db()
         
         try:
-            # التحقق إذا المستخدم مسجل مسبقاً
             user = db.query(User).filter_by(user_id=user_id).first()
             if user:
                 return user
             
-            # تسجيل مستخدم جديد
             user = User(
                 user_id=user_id,
                 username=update.effective_user.username or "",
@@ -382,7 +296,6 @@ class TelegramFundingBot:
                 created_at=datetime.now()
             )
             
-            # معالجة الإحالة
             if context.args:
                 try:
                     referrer_id = int(context.args[0])
@@ -399,70 +312,53 @@ class TelegramFundingBot:
             db.add(user)
             db.commit()
             return user
-            
-        except Exception as e:
-            print(f"خطأ في تسجيل المستخدم: {e}")
-            db.rollback()
+        except:
             return None
         finally:
             db.close()
     
-    # ==================== 🎯 معالجة الأوامر ====================
+    # ==================== 🎯 أمر /start ====================
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة أمر /start"""
-        # التحقق من وضع الصيانة
-        if await self.check_maintenance(update):
-            return
-        
         user_id = update.effective_user.id
         
-        # التحقق من الاشتراك الإجباري
         if not await self.check_mandatory_channels(user_id, context):
             await self.show_mandatory_channels_start(update, context)
             return
         
-        # تسجيل المستخدم
         user = await self.register_user(update, context)
         if not user:
-            await update.message.reply_text("❌ حدث خطأ في التسجيل!")
+            await update.message.reply_text("❌ خطأ في التسجيل")
             return
         
-        # التحقق من الحظر
         if user.is_banned:
             await update.message.reply_text(f"🚫 حسابك محظور\nالسبب: {user.ban_reason}")
             return
         
-        # عرض القائمة الرئيسية
         await self.show_main_menu(update, context, user)
     
     async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user):
-        """عرض القائمة الرئيسية"""
         welcome_text = f"""
-👋 أهلاً بك {user.first_name}!
+👋 أهلاً {user.first_name}!
 
 🆔 إيديك: `{user.user_id}`
 ⭐ نقاطك: {user.points:,}
-📊 عدد دعواتك: {user.referrals}
+📊 دعواتك: {user.referrals}
 
 اختر من القائمة:
 """
         
         keyboard = []
-        
-        # زر لوحة التحكم للمشرفين فقط
         if user.is_admin:
             keyboard.append([InlineKeyboardButton("👑 لوحة التحكم", callback_data="admin_panel")])
         
-        # الأزرار الأساسية
         keyboard.extend([
             [InlineKeyboardButton("👥 زيادة المشتركين", callback_data="increase_members")],
             [InlineKeyboardButton("⭐ نقاطي", callback_data="my_points")],
             [InlineKeyboardButton("🔄 تحويل النقاط", callback_data="transfer_points")],
             [InlineKeyboardButton("📢 قنوات إجبارية", callback_data="mandatory_channels")],
-            [InlineKeyboardButton("📞 تواصل مع الدعم", callback_data="contact_support")],
+            [InlineKeyboardButton("📞 الدعم", callback_data="contact_support")],
             [InlineKeyboardButton("🔗 رابط الدعوة", callback_data="invite_link")],
-            [InlineKeyboardButton("🎁 الهدية اليومية", callback_data="daily_gift")],
-            [InlineKeyboardButton("📋 طلباتي", callback_data="my_requests")]
+            [InlineKeyboardButton("🎁 هدية يومية", callback_data="daily_gift")]
         ])
         
         if update.callback_query:
@@ -478,200 +374,11 @@ class TelegramFundingBot:
                 parse_mode='Markdown'
             )
     
-    # ==================== 🔘 معالجة الأزرار ====================
-    async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة ضغطات الأزرار"""
-        query = update.callback_query
-        await query.answer()
-        data = query.data
-        user_id = query.from_user.id
-        
-        # التحقق من وضع الصيانة
-        if await self.check_maintenance(update):
-            return
-        
-        # توجيه حسب الزر المضغوط
-        if data == "admin_panel":
-            await self.show_admin_panel(query, context)
-        elif data == "increase_members":
-            await self.show_increase_members(query, context)
-        elif data == "my_points":
-            await self.show_my_points(query, context)
-        elif data == "transfer_points":
-            await self.show_transfer_points(query, context)
-        elif data == "mandatory_channels":
-            await self.show_mandatory_channels_menu(query, context)
-        elif data == "contact_support":
-            await self.show_support_contacts(query, context)
-        elif data == "invite_link":
-            await self.show_invite_link(query, context)
-        elif data == "daily_gift":
-            await self.give_daily_gift(query, context)
-        elif data == "my_requests":
-            await self.show_my_requests(query, context)
-        elif data == "check_subscription":
-            await self.handle_check_subscription(query, context)
-        elif data == "back_to_main":
-            await self.back_to_main_menu(query, context)
-        elif data.startswith("funding_type_"):
-            await self.handle_funding_type(query, context, data)
-        elif data == "start_transfer":
-            await self.start_transfer_process(query, context)
-        elif data == "transfer_history":
-            await self.show_transfer_history(query, context)
-    
-    async def handle_check_subscription(self, query, context):
-        """معالجة التحقق من الاشتراك"""
-        if await self.check_mandatory_channels(query.from_user.id, context):
-            db = self.db()
-            try:
-                user = db.query(User).filter_by(user_id=query.from_user.id).first()
-                if user:
-                    await self.show_main_menu(update, context, user)
-            finally:
-                db.close()
-        else:
-            await query.answer("❌ لم تشترك في كل القنوات بعد!", show_alert=True)
-    
-    async def back_to_main_menu(self, query, context):
-        """العودة للقائمة الرئيسية"""
-        db = self.db()
-        try:
-            user = db.query(User).filter_by(user_id=query.from_user.id).first()
-            if user:
-                await self.show_main_menu(update, context, user)
-        finally:
-            db.close()
-    
-    async def handle_funding_type(self, query, context, data):
-        """معالجة نوع التمويل"""
-        funding_type = data.split("_")[2]
-        context.user_data['funding_type'] = funding_type
-        
-        db = self.db()
-        try:
-            points_settings = db.query(PointsSettings).first()
-            points_per_member = points_settings.points_per_member if points_settings else self.config.POINTS_PER_MEMBER
-            
-            await query.edit_message_text(
-                f"📝 ارسل عدد الأعضاء المطلوب ({funding_type}):\n\n"
-                f"💎 سعر العضو الواحد: {points_per_member} نقطة\n"
-                f"💰 احسب التكلفة: (العدد × {points_per_member})"
-            )
-        finally:
-            db.close()
-    
-    async def start_transfer_process(self, query, context):
-        """بدء عملية تحويل النقاط"""
-        await query.edit_message_text(
-            "🔄 تحويل النقاط\n\n"
-            "ارسل رسالة بالشكل التالي:\n"
-            "`تحويل [المبلغ] [إيدي المستخدم]`\n\n"
-            "مثال: `تحويل 100 123456789`\n\n"
-            "💡 عمولة التحويل: 5% (قابلة للتغيير من لوحة التحكم)"
-        )
-    
-    # ==================== 📱 واجهات المستخدم ====================
-    async def show_increase_members(self, query, context):
-        """عرض واجهة زيادة الأعضاء"""
-        db = self.db()
-        try:
-            user = db.query(User).filter_by(user_id=query.from_user.id).first()
-            if not user:
-                return
-            
-            points_settings = db.query(PointsSettings).first()
-            min_points = points_settings.min_points_for_funding if points_settings else self.config.MIN_POINTS_FOR_FUNDING
-            
-            if user.points < min_points:
-                await query.answer(f"❌ تحتاج على الأقل {min_points} نقطة لطلب التمويل!", show_alert=True)
-                return
-            
-            keyboard = [
-                [InlineKeyboardButton("📢 قناة عامة", callback_data="funding_type_channel")],
-                [InlineKeyboardButton("👥 مجموعة", callback_data="funding_type_group")],
-                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
-            ]
-            
-            await query.edit_message_text(
-                "اختر نوع القناة/المجموعة التي تريد زيادة أعضائها:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        finally:
-            db.close()
-    
-    async def show_my_points(self, query, context):
-        """عرض نقاط المستخدم"""
-        db = self.db()
-        try:
-            user = db.query(User).filter_by(user_id=query.from_user.id).first()
-            if not user:
-                return
-            
-            points_settings = db.query(PointsSettings).first()
-            
-            points_text = f"""
-⭐ نقاطك الحالية: {user.points:,}
-
-طرق زيادة النقاط:
-1. 🔗 دعوة أصدقاء: {points_settings.points_per_referral if points_settings else 5} نقاط لكل صديق
-2. 📢 الاشتراك في القنوات: {points_settings.points_per_channel if points_settings else 2} نقاط لكل قناة
-3. 🎁 الهدية اليومية: {points_settings.daily_gift_points if points_settings else 3} نقاط يومياً
-4. 💰 شراء النقاط: تواصل مع الدعم
-
-أقل حد للتمويل: {points_settings.min_points_for_funding if points_settings else 25} نقطة
-"""
-            
-            keyboard = [
-                [InlineKeyboardButton("🔄 تحويل النقاط", callback_data="transfer_points")],
-                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
-            ]
-            
-            await query.edit_message_text(
-                points_text,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        finally:
-            db.close()
-    
-    async def show_transfer_points(self, query, context):
-        """عرض واجهة تحويل النقاط"""
-        db = self.db()
-        try:
-            settings = db.query(SystemSettings).first()
-            if not settings or not settings.transfer_enabled:
-                await query.answer("❌ خدمة تحويل النقاط معطلة حالياً!", show_alert=True)
-                return
-            
-            user = db.query(User).filter_by(user_id=query.from_user.id).first()
-            if not user:
-                return
-            
-            keyboard = [
-                [InlineKeyboardButton("🚀 بدء التحويل", callback_data="start_transfer")],
-                [InlineKeyboardButton("📋 سجل التحويلات", callback_data="transfer_history")],
-                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
-            ]
-            
-            await query.edit_message_text(
-                f"🔄 تحويل النقاط\n\n"
-                f"⭐ نقاطك الحالية: {user.points:,}\n"
-                f"💸 عمولة التحويل: {settings.transfer_fee_percent}%\n"
-                f"📤 أقصى مبلغ للتحويل: لا يوجد حد\n\n"
-                f"اختر الإجراء:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        finally:
-            db.close()
-    
     async def show_mandatory_channels_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """عرض قنوات الاشتراك الإجباري عند البدء"""
-        db = self.db()
+        db = get_db()
         try:
             channels = db.query(Channel).filter_by(is_mandatory=True).all()
-            
             if not channels:
-                # لا توجد قنوات إجبارية
                 return
             
             keyboard = []
@@ -688,748 +395,47 @@ class TelegramFundingBot:
             keyboard.append([InlineKeyboardButton("✅ تحقق من الاشتراك", callback_data="check_subscription")])
             
             await update.message.reply_text(
-                "⚠️ يجب الاشتراك في القنوات التالية أولاً:",
+                "⚠️ اشترك في القنوات التالية أولاً:",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         finally:
             db.close()
     
-    async def show_mandatory_channels_menu(self, query, context):
-        """عرض قنوات الاشتراك الإجباري في القائمة"""
-        db = self.db()
-        try:
-            channels = db.query(Channel).filter_by(is_mandatory=True).all()
-            
-            if not channels:
-                text = "✅ لا توجد قنوات إجبارية حالياً."
-            else:
-                text = "📢 قنوات الاشتراك الإجباري:\n\n"
-                for i, channel in enumerate(channels, 1):
-                    is_subscribed = await self.check_mandatory_channels(query.from_user.id, context)
-                    status = "✅ مشترك" if is_subscribed else "❌ غير مشترك"
-                    username = channel.channel_username or channel.channel_id
-                    text += f"{i}. {channel.channel_title or username}\n{status}\n\n"
-            
-            keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-        finally:
-            db.close()
-    
-    async def show_support_contacts(self, query, context):
-        """عرض جهات اتصال الدعم الفني"""
-        db = self.db()
-        try:
-            support_contacts = db.query(SupportContact).filter_by(is_active=True).all()
-            
-            if not support_contacts:
-                text = "📞 لا يوجد ممثلين للدعم حالياً."
-            else:
-                text = "📞 قائمة ممثلي الدعم الفني:\n\n"
-                for contact in support_contacts:
-                    text += f"• @{contact.username}\n"
-                text += "\nراسل أي ممثل للشحن أو الاستفسار."
-            
-            keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-        finally:
-            db.close()
-    
-    async def show_invite_link(self, query, context):
-        """عرض رابط الدعوة"""
-        bot_username = context.bot.username
-        invite_link = f"https://t.me/{bot_username}?start={query.from_user.id}"
+    # ==================== 🔘 معالجة الأزرار ====================
+    async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        data = query.data
         
-        db = self.db()
-        try:
-            points_settings = db.query(PointsSettings).first()
-            points_per_referral = points_settings.points_per_referral if points_settings else self.config.POINTS_PER_REFERRAL
-            
-            text = f"""
-🔗 رابط دعوتك الخاص:
-
-`{invite_link}`
-
-📊 لكل صديق تدعوه: {points_per_referral} نقاط
-⭐ النقاط تخصم فور اشتراك صديقك
-"""
-            
-            keyboard = [
-                [InlineKeyboardButton("🔗 نسخ الرابط", callback_data="copy_link")],
-                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
-            ]
-            
-            await query.edit_message_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
-            )
-        finally:
-            db.close()
-    
-    async def show_my_requests(self, query, context):
-        """عرض طلبات المستخدم"""
-        db = self.db()
-        try:
-            requests = db.query(FundingRequest).filter_by(user_id=query.from_user.id).order_by(FundingRequest.created_at.desc()).limit(5).all()
-            
-            if not requests:
-                text = "📋 لا توجد طلبات سابقة."
-            else:
-                text = "📋 آخر 5 طلبات:\n\n"
-                for req in requests:
-                    status_emoji = {
-                        'pending': '⏳',
-                        'approved': '✅',
-                        'completed': '🎉',
-                        'rejected': '❌'
-                    }.get(req.status, '📝')
-                    
-                    text += (
-                        f"طلب #{req.id}\n"
-                        f"{status_emoji} الحالة: {req.status}\n"
-                        f"👥 الأعضاء: {req.requested_members}\n"
-                        f"💰 التكلفة: {req.points_cost} نقطة\n"
-                        f"🕒 الوقت: {req.created_at.strftime('%Y-%m-%d %H:%M')}\n"
-                        f"────────────────────\n"
-                    )
-            
-            keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-        finally:
-            db.close()
-    
-    async def show_transfer_history(self, query, context):
-        """عرض سجل تحويلات المستخدم"""
-        db = self.db()
-        try:
-            user_id = query.from_user.id
-            transfers = db.query(PointsTransfer).filter(
-                (PointsTransfer.from_user_id == user_id) | (PointsTransfer.to_user_id == user_id)
-            ).order_by(PointsTransfer.transfer_date.desc()).limit(10).all()
-            
-            if not transfers:
-                text = "📋 لا توجد تحويلات سابقة."
-            else:
-                text = "📋 آخر 10 تحويلات:\n\n"
-                for transfer in transfers:
-                    if transfer.from_user_id == user_id:
-                        direction = "📤 مرسل"
-                        target = transfer.to_user_id
-                    else:
-                        direction = "📥 مستلم"
-                        target = transfer.from_user_id
-                    
-                    text += (
-                        f"{direction}\n"
-                        f"💰 المبلغ: {transfer.amount} نقطة\n"
-                        f"💸 العمولة: {transfer.fee_amount} نقطة\n"
-                        f"👤 الطرف الآخر: {target}\n"
-                        f"🕒 الوقت: {transfer.transfer_date.strftime('%Y-%m-%d %H:%M')}\n"
-                        f"────────────────────\n"
-                    )
-            
-            keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="transfer_points")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-        finally:
-            db.close()
-    
-    async def give_daily_gift(self, query, context):
-        """منح الهدية اليومية"""
-        db = self.db()
-        try:
-            user = db.query(User).filter_by(user_id=query.from_user.id).first()
-            if not user:
-                return
-            
-            now = datetime.now()
-            
-            # التحقق إذا أخذ الهدية اليوم
-            if user.last_daily_gift:
-                last_gift_date = user.last_daily_gift.date()
-                if last_gift_date == now.date():
-                    next_gift = user.last_daily_gift + timedelta(days=1)
-                    remaining = next_gift - now
-                    hours = remaining.seconds // 3600
-                    minutes = (remaining.seconds % 3600) // 60
-                    
-                    await query.answer(f"⏳ الهدية متاحة بعد {hours} ساعة و {minutes} دقيقة", show_alert=True)
-                    return
-            
-            # منح النقاط
-            points_settings = db.query(PointsSettings).first()
-            points = points_settings.daily_gift_points if points_settings else self.config.DAILY_GIFT_POINTS
-            
-            user.points += points
-            user.last_daily_gift = now
-            db.commit()
-            
-            await query.answer(f"🎁 حصلت على {points} نقاط!", show_alert=True)
+        if data == "admin_panel":
+            await self.show_admin_panel(query, context)
+        elif data == "increase_members":
+            await self.show_increase_members(query, context)
+        elif data == "my_points":
             await self.show_my_points(query, context)
-        finally:
-            db.close()
+        elif data == "transfer_points":
+            await self.show_transfer_points(query, context)
+        elif data == "mandatory_channels":
+            await self.show_mandatory_channels_menu(query, context)
+        elif data == "contact_support":
+            await self.show_support_contacts(query, context)
+        elif data == "invite_link":
+            await self.show_invite_link(query, context)
+        elif data == "daily_gift":
+            await self.give_daily_gift(query, context)
+        elif data == "check_subscription":
+            await self.handle_check_subscription(query, context)
+        elif data == "back_to_main":
+            await self.back_to_main_menu(query, context)
+        elif data.startswith("funding_type_"):
+            await self.handle_funding_type(query, context, data)
     
-    # ==================== 📝 معالجة الرسائل النصية ====================
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة الرسائل النصية"""
-        user_id = update.effective_user.id
-        text = update.message.text.strip()
-        
-        # التحقق من وضع الصيانة
-        if await self.check_maintenance(update):
-            return
-        
-        # إذا كان المستخدم في مرحلة إدخال عدد الأعضاء
-        if 'funding_type' in context.user_data and 'requested_members' not in context.user_data:
-            await self.handle_funding_request(update, context)
-        
-        # إذا كان المستخدم في مرحلة إدخال الرابط
-        elif 'requested_members' in context.user_data and 'points_needed' in context.user_data:
-            await self.handle_channel_link(update, context)
-        
-        # إذا كان طلب تحويل نقاط
-        elif text.startswith('تحويل '):
-            await self.handle_points_transfer(update, context)
-        
-        # إذا كان رسالة عادية
-        else:
-            # التحقق من الاشتراك الإجباري أولاً
-            if not await self.check_mandatory_channels(user_id, context):
-                await update.message.reply_text("⛔ يجب الاشتراك في القنوات الإجبارية أولاً! استخدم /start")
-                return
-            
-            # إذا كان المستخدم مشرف ويرسل أمر
-            db = self.db()
-            try:
-                user = db.query(User).filter_by(user_id=user_id).first()
-                if user and user.is_admin and text.startswith('/'):
-                    await self.handle_admin_commands(update, context)
-                else:
-                    await update.message.reply_text("استخدم الأزرار في القائمة أو /start للبدء")
-            finally:
-                db.close()
-    
-    async def handle_funding_request(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة طلب التمويل"""
-        user_id = update.effective_user.id
-        text = update.message.text
-        
-        if not text.isdigit():
-            await update.message.reply_text("❌ الرجاء إدخال رقم صحيح!")
-            return
-        
-        requested_members = int(text)
-        db = self.db()
-        
-        try:
-            user = db.query(User).filter_by(user_id=user_id).first()
-            if not user:
-                return
-            
-            points_settings = db.query(PointsSettings).first()
-            points_per_member = points_settings.points_per_member if points_settings else self.config.POINTS_PER_MEMBER
-            
-            # حساب التكلفة
-            points_needed = requested_members * points_per_member
-            
-            if user.points < points_needed:
-                await update.message.reply_text(
-                    f"❌ نقاطك غير كافية!\n"
-                    f"💎 لديك: {user.points} نقطة\n"
-                    f"💰 تحتاج: {points_needed} نقطة\n"
-                    f"⭐ الناقص: {points_needed - user.points} نقطة"
-                )
-                return
-            
-            context.user_data['requested_members'] = requested_members
-            context.user_data['points_needed'] = points_needed
-            
-            await update.message.reply_text(
-                f"✅ الطلب مقبول!\n"
-                f"📊 عدد الأعضاء: {requested_members}\n"
-                f"💰 التكلفة: {points_needed} نقطة\n\n"
-                f"📝 الآن ارسل رابط قناتك/مجموعتك:\n"
-                f"(يبدأ بـ @ أو https://t.me/)"
-            )
-        finally:
-            db.close()
-    
-    async def handle_channel_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة رابط القناة"""
-        user_id = update.effective_user.id
-        link = update.message.text
-        db = self.db()
-        
-        try:
-            user = db.query(User).filter_by(user_id=user_id).first()
-            if not user or 'requested_members' not in context.user_data:
-                return
-            
-            # استخراج معرف القناة
-            channel_id = self.extract_channel_id(link)
-            if not channel_id:
-                await update.message.reply_text("❌ رابط غير صالح! تأكد من الرابط وأرسله مرة أخرى.")
-                return
-            
-            # التحقق من أن البوت أدمن في القناة
-            try:
-                chat_member = await context.bot.get_chat_member(channel_id, context.bot.id)
-                if chat_member.status not in ['administrator', 'creator']:
-                    await update.message.reply_text("❌ البوت ليس أدمن في القناة! ارفع البوت كأدمن أولاً.")
-                    return
-            except Exception as e:
-                print(f"Error checking admin status: {e}")
-                await update.message.reply_text("❌ لا يمكن الوصول للقناة! تأكد من صلاحيات البوت.")
-                return
-            
-            # خصم النقاط وإنشاء الطلب
-            requested_members = context.user_data['requested_members']
-            points_needed = context.user_data['points_needed']
-            
-            user.points -= points_needed
-            funding_request = FundingRequest(
-                user_id=user_id,
-                target_channel=channel_id,
-                target_type=context.user_data['funding_type'],
-                requested_members=requested_members,
-                points_cost=points_needed,
-                status='pending',
-                created_at=datetime.now()
-            )
-            
-            db.add(funding_request)
-            db.commit()
-            
-            # إرسال إشعار للمشرفين
-            await self.notify_admins_about_request(context.bot, funding_request, user)
-            
-            await update.message.reply_text(
-                f"✅ تم استلام طلبك!\n"
-                f"📊 رقم الطلب: {funding_request.id}\n"
-                f"👥 الأعضاء: {requested_members}\n"
-                f"💰 النقاط المخصومة: {points_needed}\n"
-                f"⭐ نقاطك المتبقية: {user.points}\n\n"
-                f"⏳ الطلب قيد الانتظار للموافقة..."
-            )
-            
-            # تنظيف البيانات المؤقتة
-            context.user_data.clear()
-            
-        finally:
-            db.close()
-    
-    async def handle_points_transfer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة طلب تحويل النقاط"""
-        user_id = update.effective_user.id
-        text = update.message.text.strip()
-        db = self.db()
-        
-        try:
-            # التحقق من صيغة الرسالة
-            if not text.startswith('تحويل '):
-                return
-            
-            parts = text.split()
-            if len(parts) != 3:
-                await update.message.reply_text("❌ صيغة خاطئة! استخدم: `تحويل [المبلغ] [إيدي المستخدم]`")
-                return
-            
-            amount = int(parts[1])
-            target_user_id = int(parts[2])
-            
-            # التحقق من الإعدادات
-            settings = db.query(SystemSettings).first()
-            if not settings or not settings.transfer_enabled:
-                await update.message.reply_text("❌ خدمة تحويل النقاط معطلة حالياً!")
-                return
-            
-            # منع التحويل للنفس
-            if target_user_id == user_id:
-                await update.message.reply_text("❌ لا يمكنك تحويل النقاط لنفسك!")
-                return
-            
-            # جلب بيانات المرسل
-            sender = db.query(User).filter_by(user_id=user_id).first()
-            if not sender:
-                await update.message.reply_text("❌ حسابك غير موجود!")
-                return
-            
-            # التحقق من الرصيد
-            fee_percent = settings.transfer_fee_percent
-            fee_amount = int(amount * fee_percent / 100)
-            total_deduct = amount + fee_amount
-            
-            if sender.points < total_deduct:
-                await update.message.reply_text(
-                    f"❌ نقاطك غير كافية!\n"
-                    f"💎 تحتاج: {total_deduct} نقطة (المبلغ + العمولة)\n"
-                    f"⭐ لديك: {sender.points} نقطة"
-                )
-                return
-            
-            # جلب بيانات المستقبل
-            receiver = db.query(User).filter_by(user_id=target_user_id).first()
-            if not receiver:
-                await update.message.reply_text("❌ المستخدم الهدف غير موجود!")
-                return
-            
-            # تنفيذ التحويل
-            sender.points -= total_deduct
-            receiver.points += amount
-            
-            # تسجيل العملية
-            transfer = PointsTransfer(
-                from_user_id=user_id,
-                to_user_id=target_user_id,
-                amount=amount,
-                fee_percent=fee_percent,
-                fee_amount=fee_amount,
-                net_amount=amount,
-                transfer_date=datetime.now()
-            )
-            db.add(transfer)
-            db.commit()
-            
-            # إرسال إشعارات
-            await update.message.reply_text(
-                f"✅ تم تحويل {amount} نقطة بنجاح!\n\n"
-                f"📤 إلى: {receiver.first_name or 'مستخدم'} (إيدي: {target_user_id})\n"
-                f"💸 العمولة: {fee_amount} نقطة ({fee_percent}%)\n"
-                f"💰 المبلغ الإجمالي: {total_deduct} نقطة\n"
-                f"⭐ رصيدك الجديد: {sender.points} نقطة"
-            )
-            
-            # إشعار المستقبل
-            try:
-                await context.bot.send_message(
-                    target_user_id,
-                    f"🎉 استلمت تحويل نقاط!\n\n"
-                    f"📥 من: {sender.first_name or 'مستخدم'} (إيدي: {user_id})\n"
-                    f"💰 المبلغ: {amount} نقطة\n"
-                    f"⭐ رصيدك الجديد: {receiver.points} نقطة"
-                )
-            except:
-                pass  # قد يكون المستقبل حظر البوت
-            
-        except ValueError:
-            await update.message.reply_text("❌ الرجاء إدخال أرقام صحيحة!")
-        except Exception as e:
-            await update.message.reply_text(f"❌ حدث خطأ: {str(e)}")
-        finally:
-            db.close()
-    
-    # ==================== 👑 أوامر المشرفين ====================
-    async def handle_admin_commands(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة أوامر المشرفين"""
-        text = update.message.text
-        user_id = update.effective_user.id
-        db = self.db()
-        
-        try:
-            user = db.query(User).filter_by(user_id=user_id).first()
-            if not user or not user.is_admin:
-                return
-            
-            if text.startswith('/add_admin'):
-                await self.handle_add_admin(update, context, text)
-            
-            elif text.startswith('/ban'):
-                await self.handle_ban_user(update, context, text)
-            
-            elif text.startswith('/add_points'):
-                await self.handle_add_points(update, context, text)
-            
-            elif text.startswith('/maintenance'):
-                await self.handle_maintenance(update, context, text)
-            
-            elif text.startswith('/set_fee'):
-                await self.handle_set_fee(update, context, text)
-            
-            elif text.startswith('/add_support'):
-                await self.handle_add_support(update, context, text)
-            
-            elif text.startswith('/remove_support'):
-                await self.handle_remove_support(update, context, text)
-            
-            elif text.startswith('/add_channel'):
-                await self.handle_add_channel(update, context, text)
-            
-            elif text.startswith('/add_group'):
-                await self.handle_add_group(update, context, text)
-        
-        finally:
-            db.close()
-    
-    async def handle_add_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """إضافة مشرف جديد"""
-        parts = text.split()
-        if len(parts) < 2:
-            await update.message.reply_text("❌ صيغة خاطئة: /add_admin @username أو user_id")
-            return
-        
-        target = parts[1].replace('@', '')
-        db = self.db()
-        
-        try:
-            if target.isdigit():
-                target_user = db.query(User).filter_by(user_id=int(target)).first()
-            else:
-                target_user = db.query(User).filter_by(username=target).first()
-            
-            if not target_user:
-                await update.message.reply_text("❌ المستخدم غير موجود!")
-                return
-            
-            target_user.is_admin = True
-            db.commit()
-            
-            await update.message.reply_text(f"✅ تمت ترقية {target_user.first_name} إلى مشرف")
-        finally:
-            db.close()
-    
-    async def handle_ban_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """حظر مستخدم"""
-        parts = text.split()
-        if len(parts) < 3:
-            await update.message.reply_text("❌ صيغة خاطئة: /ban @username السبب")
-            return
-        
-        target = parts[1].replace('@', '')
-        reason = ' '.join(parts[2:])
-        db = self.db()
-        
-        try:
-            if target.isdigit():
-                target_user = db.query(User).filter_by(user_id=int(target)).first()
-            else:
-                target_user = db.query(User).filter_by(username=target).first()
-            
-            if not target_user:
-                await update.message.reply_text("❌ المستخدم غير موجود!")
-                return
-            
-            target_user.is_banned = True
-            target_user.ban_reason = reason
-            db.commit()
-            
-            await update.message.reply_text(f"✅ تم حظر {target_user.first_name}\nالسبب: {reason}")
-        finally:
-            db.close()
-    
-    async def handle_add_points(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """إضافة نقاط لمستخدم"""
-        parts = text.split()
-        if len(parts) < 3:
-            await update.message.reply_text("❌ صيغة خاطئة: /add_points @username العدد")
-            return
-        
-        target = parts[1].replace('@', '')
-        points = int(parts[2])
-        db = self.db()
-        
-        try:
-            if target.isdigit():
-                target_user = db.query(User).filter_by(user_id=int(target)).first()
-            else:
-                target_user = db.query(User).filter_by(username=target).first()
-            
-            if not target_user:
-                await update.message.reply_text("❌ المستخدم غير موجود!")
-                return
-            
-            target_user.points += points
-            db.commit()
-            
-            await update.message.reply_text(f"✅ تم إضافة {points} نقطة لـ {target_user.first_name}")
-        finally:
-            db.close()
-    
-    async def handle_maintenance(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """تفعيل/تعطيل وضع الصيانة"""
-        parts = text.split()
-        if len(parts) < 2:
-            await update.message.reply_text("❌ صيغة خاطئة: /maintenance on/off [رسالة]")
-            return
-        
-        mode = parts[1].lower()
-        message = ' '.join(parts[2:]) if len(parts) > 2 else "🔧 البوت تحت الصيانة حالياً"
-        
-        db = self.db()
-        try:
-            settings = db.query(SystemSettings).first()
-            if settings:
-                if mode == 'on':
-                    settings.maintenance_mode = True
-                    settings.maintenance_message = message
-                    await update.message.reply_text(f"✅ تم تفعيل وضع الصيانة\n📝 الرسالة: {message}")
-                elif mode == 'off':
-                    settings.maintenance_mode = False
-                    await update.message.reply_text("✅ تم تعطيل وضع الصيانة")
-                db.commit()
-        finally:
-            db.close()
-    
-    async def handle_set_fee(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """تعديل عمولة التحويل"""
-        parts = text.split()
-        if len(parts) < 2:
-            await update.message.reply_text("❌ صيغة خاطئة: /set_fee النسبة")
-            return
-        
-        try:
-            fee = int(parts[1])
-            if fee < 0 or fee > 50:
-                await update.message.reply_text("❌ النسبة يجب أن تكون بين 0 و 50!")
-                return
-            
-            db = self.db()
-            try:
-                settings = db.query(SystemSettings).first()
-                if settings:
-                    old_fee = settings.transfer_fee_percent
-                    settings.transfer_fee_percent = fee
-                    db.commit()
-                    await update.message.reply_text(f"✅ تم تغيير عمولة التحويل من {old_fee}% إلى {fee}%")
-            finally:
-                db.close()
-        except ValueError:
-            await update.message.reply_text("❌ الرجاء إدخال رقم صحيح!")
-    
-    async def handle_add_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """إضافة ممثل دعم"""
-        parts = text.split()
-        if len(parts) < 2:
-            await update.message.reply_text("❌ صيغة خاطئة: /add_support @username")
-            return
-        
-        target = parts[1].replace('@', '')
-        
-        # البحث عن المستخدم
-        try:
-            user = await context.bot.get_chat(target)
-            
-            db = self.db()
-            try:
-                # التحقق إذا موجود مسبقاً
-                existing = db.query(SupportContact).filter_by(user_id=user.id).first()
-                if existing:
-                    await update.message.reply_text("⚠️ هذا المستخدم مضاف بالفعل للدعم!")
-                    return
-                
-                # إضافة ممثل دعم جديد
-                support = SupportContact(
-                    user_id=user.id,
-                    username=user.username or user.first_name,
-                    added_by=update.effective_user.id,
-                    added_at=datetime.now()
-                )
-                db.add(support)
-                db.commit()
-                
-                await update.message.reply_text(f"✅ تم إضافة @{user.username or user.first_name} كممثل دعم")
-            finally:
-                db.close()
-                
-        except Exception as e:
-            await update.message.reply_text(f"❌ خطأ: {str(e)}")
-    
-    async def handle_remove_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """إزالة ممثل دعم"""
-        parts = text.split()
-        if len(parts) < 2:
-            await update.message.reply_text("❌ صيغة خاطئة: /remove_support @username")
-            return
-        
-        target = parts[1].replace('@', '')
-        db = self.db()
-        
-        try:
-            support = db.query(SupportContact).filter_by(username=target).first()
-            if not support:
-                await update.message.reply_text("❌ ممثل الدعم غير موجود!")
-                return
-            
-            db.delete(support)
-            db.commit()
-            
-            await update.message.reply_text(f"✅ تم إزالة @{target} من قائمة الدعم")
-        finally:
-            db.close()
-    
-    async def handle_add_channel(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """إضافة قناة إجبارية"""
-        parts = text.split()
-        if len(parts) < 3:
-            await update.message.reply_text("❌ صيغة خاطئة: /add_channel @channel_id عنوان_القناة [mandatory/optional]")
-            return
-        
-        channel_id = parts[1]
-        channel_title = ' '.join(parts[2:-1]) if len(parts) > 3 else parts[2]
-        is_mandatory = parts[-1].lower() == 'mandatory' if len(parts) > 3 else False
-        
-        db = self.db()
-        try:
-            # التحقق إذا القناة موجودة مسبقاً
-            existing = db.query(Channel).filter_by(channel_id=channel_id).first()
-            if existing:
-                await update.message.reply_text("⚠️ هذه القناة مضافه بالفعل!")
-                return
-            
-            # إضافة القناة
-            channel = Channel(
-                channel_id=channel_id,
-                channel_title=channel_title,
-                is_mandatory=is_mandatory,
-                added_by_admin=update.effective_user.id,
-                created_at=datetime.now()
-            )
-            db.add(channel)
-            db.commit()
-            
-            status = "إجبارية" if is_mandatory else "اختيارية"
-            await update.message.reply_text(f"✅ تم إضافة القناة {channel_title}\n📢 الحالة: {status}")
-        finally:
-            db.close()
-    
-    async def handle_add_group(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """إضافة مجموعة مصدر"""
-        parts = text.split()
-        if len(parts) < 3:
-            await update.message.reply_text("❌ صيغة خاطئة: /add_group @group_id عنوان_المجموعة")
-            return
-        
-        group_id = parts[1]
-        group_title = ' '.join(parts[2:])
-        
-        db = self.db()
-        try:
-            # التحقق إذا المجموعة موجودة مسبقاً
-            existing = db.query(GroupSource).filter_by(group_id=group_id).first()
-            if existing:
-                await update.message.reply_text("⚠️ هذه المجموعة مضافه بالفعل!")
-                return
-            
-            # إضافة المجموعة
-            group = GroupSource(
-                group_id=group_id,
-                group_title=group_title,
-                added_by_admin=update.effective_user.id,
-                created_at=datetime.now()
-            )
-            db.add(group)
-            db.commit()
-            
-            await update.message.reply_text(f"✅ تم إضافة المجموعة {group_title}")
-        finally:
-            db.close()
-    
-    # ==================== 📋 لوحة تحكم المشرفين ====================
     async def show_admin_panel(self, query, context):
-        """عرض لوحة تحكم المشرف"""
-        db = self.db()
+        db = get_db()
         try:
             user = db.query(User).filter_by(user_id=query.from_user.id).first()
             if not user or not user.is_admin:
-                await query.answer("❌ ليس لديك صلاحية الدخول!", show_alert=True)
+                await query.answer("❌ ليس لديك صلاحية!", show_alert=True)
                 return
             
             text = """
@@ -1447,9 +453,6 @@ class TelegramFundingBot:
                 [InlineKeyboardButton("📋 طلبات التمويل", callback_data="admin_requests")],
                 [InlineKeyboardButton("📞 إدارة الدعم", callback_data="admin_support")],
                 [InlineKeyboardButton("⚙️ إعدادات النظام", callback_data="admin_system")],
-                [InlineKeyboardButton("⭐ إعدادات النقاط", callback_data="admin_points")],
-                [InlineKeyboardButton("🔄 إعدادات التحويل", callback_data="admin_transfer")],
-                [InlineKeyboardButton("📨 إرسال للجميع", callback_data="admin_broadcast")],
                 [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
             ]
             
@@ -1457,10 +460,445 @@ class TelegramFundingBot:
         finally:
             db.close()
     
-    # ==================== 🔔 الإشعارات ====================
+    async def show_increase_members(self, query, context):
+        db = get_db()
+        try:
+            user = db.query(User).filter_by(user_id=query.from_user.id).first()
+            if not user:
+                return
+            
+            points_settings = db.query(PointsSettings).first()
+            min_points = points_settings.min_points_for_funding if points_settings else 25
+            
+            if user.points < min_points:
+                await query.answer(f"❌ تحتاج {min_points} نقطة على الأقل!", show_alert=True)
+                return
+            
+            keyboard = [
+                [InlineKeyboardButton("📢 قناة عامة", callback_data="funding_type_channel")],
+                [InlineKeyboardButton("👥 مجموعة", callback_data="funding_type_group")],
+                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
+            ]
+            
+            await query.edit_message_text(
+                "اختر نوع القناة/المجموعة:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        finally:
+            db.close()
+    
+    async def show_my_points(self, query, context):
+        db = get_db()
+        try:
+            user = db.query(User).filter_by(user_id=query.from_user.id).first()
+            if not user:
+                return
+            
+            points_settings = db.query(PointsSettings).first()
+            
+            points_text = f"""
+⭐ نقاطك الحالية: {user.points:,}
+
+طرق زيادة النقاط:
+1. 🔗 دعوة أصدقاء: {points_settings.points_per_referral if points_settings else 5} نقاط
+2. 📢 الاشتراك في القنوات: {points_settings.points_per_channel if points_settings else 2} نقاط
+3. 🎁 الهدية اليومية: {points_settings.daily_gift_points if points_settings else 3} نقاط
+4. 💰 شراء النقاط: تواصل مع الدعم
+
+أقل حد للتمويل: {points_settings.min_points_for_funding if points_settings else 25} نقطة
+"""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔄 تحويل النقاط", callback_data="transfer_points")],
+                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
+            ]
+            
+            await query.edit_message_text(points_text, reply_markup=InlineKeyboardMarkup(keyboard))
+        finally:
+            db.close()
+    
+    async def show_transfer_points(self, query, context):
+        db = get_db()
+        try:
+            settings = db.query(SystemSettings).first()
+            if not settings or not settings.transfer_enabled:
+                await query.answer("❌ خدمة التحويل معطلة!", show_alert=True)
+                return
+            
+            user = db.query(User).filter_by(user_id=query.from_user.id).first()
+            if not user:
+                return
+            
+            keyboard = [
+                [InlineKeyboardButton("🚀 بدء التحويل", callback_data="start_transfer")],
+                [InlineKeyboardButton("📋 سجل التحويلات", callback_data="transfer_history")],
+                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
+            ]
+            
+            await query.edit_message_text(
+                f"🔄 تحويل النقاط\n\n"
+                f"⭐ نقاطك: {user.points:,}\n"
+                f"💸 عمولة: {settings.transfer_fee_percent}%\n"
+                f"اختر الإجراء:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        finally:
+            db.close()
+    
+    async def show_mandatory_channels_menu(self, query, context):
+        db = get_db()
+        try:
+            channels = db.query(Channel).filter_by(is_mandatory=True).all()
+            
+            if not channels:
+                text = "✅ لا توجد قنوات إجبارية"
+            else:
+                text = "📢 قنوات الاشتراك الإجباري:\n\n"
+                for i, channel in enumerate(channels, 1):
+                    is_subscribed = await self.check_mandatory_channels(query.from_user.id, context)
+                    status = "✅ مشترك" if is_subscribed else "❌ غير مشترك"
+                    username = channel.channel_username or channel.channel_id
+                    text += f"{i}. {channel.channel_title or username}\n{status}\n\n"
+            
+            keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]]
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        finally:
+            db.close()
+    
+    async def show_support_contacts(self, query, context):
+        db = get_db()
+        try:
+            support_contacts = db.query(SupportContact).filter_by(is_active=True).all()
+            
+            if not support_contacts:
+                text = "📞 لا يوجد ممثلين للدعم"
+            else:
+                text = "📞 قائمة الدعم:\n\n"
+                for contact in support_contacts:
+                    text += f"• @{contact.username}\n"
+                text += "\nراسل أي ممثل للشحن أو الاستفسار"
+            
+            keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]]
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        finally:
+            db.close()
+    
+    async def show_invite_link(self, query, context):
+        bot_username = context.bot.username
+        invite_link = f"https://t.me/{bot_username}?start={query.from_user.id}"
+        
+        db = get_db()
+        try:
+            points_settings = db.query(PointsSettings).first()
+            points_per_referral = points_settings.points_per_referral if points_settings else 5
+            
+            text = f"""
+🔗 رابط دعوتك:
+
+`{invite_link}`
+
+📊 لكل صديق تدعوه: {points_per_referral} نقاط
+"""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔗 نسخ الرابط", callback_data="copy_link")],
+                [InlineKeyboardButton("🔙 رجوع", callback_data="back_to_main")]
+            ]
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+        finally:
+            db.close()
+    
+    async def give_daily_gift(self, query, context):
+        db = get_db()
+        try:
+            user = db.query(User).filter_by(user_id=query.from_user.id).first()
+            if not user:
+                return
+            
+            now = datetime.now()
+            
+            if user.last_daily_gift:
+                last_gift_date = user.last_daily_gift.date()
+                if last_gift_date == now.date():
+                    next_gift = user.last_daily_gift + timedelta(days=1)
+                    remaining = next_gift - now
+                    hours = remaining.seconds // 3600
+                    minutes = (remaining.seconds % 3600) // 60
+                    
+                    await query.answer(f"⏳ متاح بعد {hours}س {minutes}د", show_alert=True)
+                    return
+            
+            points_settings = db.query(PointsSettings).first()
+            points = points_settings.daily_gift_points if points_settings else 3
+            
+            user.points += points
+            user.last_daily_gift = now
+            db.commit()
+            
+            await query.answer(f"🎁 حصلت على {points} نقاط!", show_alert=True)
+            await self.show_my_points(query, context)
+        finally:
+            db.close()
+    
+    async def handle_check_subscription(self, query, context):
+        if await self.check_mandatory_channels(query.from_user.id, context):
+            db = get_db()
+            try:
+                user = db.query(User).filter_by(user_id=query.from_user.id).first()
+                if user:
+                    await self.show_main_menu(update, context, user)
+            finally:
+                db.close()
+        else:
+            await query.answer("❌ لم تشترك في كل القنوات!", show_alert=True)
+    
+    async def back_to_main_menu(self, query, context):
+        db = get_db()
+        try:
+            user = db.query(User).filter_by(user_id=query.from_user.id).first()
+            if user:
+                await self.show_main_menu(update, context, user)
+        finally:
+            db.close()
+    
+    async def handle_funding_type(self, query, context, data):
+        funding_type = data.split("_")[2]
+        context.user_data['funding_type'] = funding_type
+        
+        db = get_db()
+        try:
+            points_settings = db.query(PointsSettings).first()
+            points_per_member = points_settings.points_per_member if points_settings else 25
+            
+            await query.edit_message_text(
+                f"📝 ارسل عدد الأعضاء ({funding_type}):\n\n"
+                f"💎 سعر العضو: {points_per_member} نقطة\n"
+                f"💰 احسب: (العدد × {points_per_member})"
+            )
+        finally:
+            db.close()
+    
+    # ==================== 📝 معالجة الرسائل ====================
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        text = update.message.text.strip()
+        
+        if 'funding_type' in context.user_data and 'requested_members' not in context.user_data:
+            await self.handle_funding_request(update, context)
+        elif 'requested_members' in context.user_data and 'points_needed' in context.user_data:
+            await self.handle_channel_link(update, context)
+        elif text.startswith('تحويل '):
+            await self.handle_points_transfer(update, context)
+        else:
+            if not await self.check_mandatory_channels(user_id, context):
+                await update.message.reply_text("⛔ اشترك في القنوات أولاً! /start")
+                return
+            
+            db = get_db()
+            try:
+                user = db.query(User).filter_by(user_id=user_id).first()
+                if user and user.is_admin and text.startswith('/'):
+                    await self.handle_admin_commands(update, context)
+                else:
+                    await update.message.reply_text("استخدم الأزرار أو /start")
+            finally:
+                db.close()
+    
+    async def handle_funding_request(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        text = update.message.text
+        
+        if not text.isdigit():
+            await update.message.reply_text("❌ أدخل رقم صحيح!")
+            return
+        
+        requested_members = int(text)
+        db = get_db()
+        
+        try:
+            user = db.query(User).filter_by(user_id=user_id).first()
+            if not user:
+                return
+            
+            points_settings = db.query(PointsSettings).first()
+            points_per_member = points_settings.points_per_member if points_settings else 25
+            points_needed = requested_members * points_per_member
+            
+            if user.points < points_needed:
+                await update.message.reply_text(
+                    f"❌ نقاطك غير كافية!\n"
+                    f"💎 لديك: {user.points}\n"
+                    f"💰 تحتاج: {points_needed}\n"
+                    f"⭐ الناقص: {points_needed - user.points}"
+                )
+                return
+            
+            context.user_data['requested_members'] = requested_members
+            context.user_data['points_needed'] = points_needed
+            
+            await update.message.reply_text(
+                f"✅ الطلب مقبول!\n"
+                f"📊 الأعضاء: {requested_members}\n"
+                f"💰 التكلفة: {points_needed} نقطة\n\n"
+                f"📝 ارسل رابط قناتك/مجموعتك:\n"
+                f"(يبدأ بـ @ أو https://t.me/)"
+            )
+        finally:
+            db.close()
+    
+    async def handle_channel_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        link = update.message.text
+        db = get_db()
+        
+        try:
+            user = db.query(User).filter_by(user_id=user_id).first()
+            if not user or 'requested_members' not in context.user_data:
+                return
+            
+            channel_id = self.extract_channel_id(link)
+            if not channel_id:
+                await update.message.reply_text("❌ رابط غير صالح!")
+                return
+            
+            try:
+                chat_member = await context.bot.get_chat_member(channel_id, context.bot.id)
+                if chat_member.status not in ['administrator', 'creator']:
+                    await update.message.reply_text("❌ البوت ليس أدمن في القناة!")
+                    return
+            except:
+                await update.message.reply_text("❌ لا يمكن الوصول للقناة!")
+                return
+            
+            requested_members = context.user_data['requested_members']
+            points_needed = context.user_data['points_needed']
+            
+            user.points -= points_needed
+            funding_request = FundingRequest(
+                user_id=user_id,
+                target_channel=channel_id,
+                target_type=context.user_data['funding_type'],
+                requested_members=requested_members,
+                points_cost=points_needed,
+                status='pending',
+                created_at=datetime.now()
+            )
+            
+            db.add(funding_request)
+            db.commit()
+            
+            await self.notify_admins_about_request(context.bot, funding_request, user)
+            
+            await update.message.reply_text(
+                f"✅ تم استلام طلبك!\n"
+                f"📊 رقم الطلب: {funding_request.id}\n"
+                f"👥 الأعضاء: {requested_members}\n"
+                f"💰 النقاط المخصومة: {points_needed}\n"
+                f"⭐ نقاطك المتبقية: {user.points}\n\n"
+                f"⏳ بانتظار الموافقة..."
+            )
+            
+            context.user_data.clear()
+            
+        finally:
+            db.close()
+    
+    async def handle_points_transfer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        text = update.message.text.strip()
+        db = get_db()
+        
+        try:
+            if not text.startswith('تحويل '):
+                return
+            
+            parts = text.split()
+            if len(parts) != 3:
+                await update.message.reply_text("❌ صيغة خاطئة: تحويل [المبلغ] [إيدي المستخدم]")
+                return
+            
+            amount = int(parts[1])
+            target_user_id = int(parts[2])
+            
+            settings = db.query(SystemSettings).first()
+            if not settings or not settings.transfer_enabled:
+                await update.message.reply_text("❌ خدمة التحويل معطلة!")
+                return
+            
+            if target_user_id == user_id:
+                await update.message.reply_text("❌ لا يمكنك التحويل لنفسك!")
+                return
+            
+            sender = db.query(User).filter_by(user_id=user_id).first()
+            if not sender:
+                await update.message.reply_text("❌ حسابك غير موجود!")
+                return
+            
+            fee_percent = settings.transfer_fee_percent
+            fee_amount = int(amount * fee_percent / 100)
+            total_deduct = amount + fee_amount
+            
+            if sender.points < total_deduct:
+                await update.message.reply_text(
+                    f"❌ نقاطك غير كافية!\n"
+                    f"💎 تحتاج: {total_deduct} نقطة\n"
+                    f"⭐ لديك: {sender.points} نقطة"
+                )
+                return
+            
+            receiver = db.query(User).filter_by(user_id=target_user_id).first()
+            if not receiver:
+                await update.message.reply_text("❌ المستخدم غير موجود!")
+                return
+            
+            sender.points -= total_deduct
+            receiver.points += amount
+            
+            transfer = PointsTransfer(
+                from_user_id=user_id,
+                to_user_id=target_user_id,
+                amount=amount,
+                fee_percent=fee_percent,
+                fee_amount=fee_amount,
+                net_amount=amount,
+                transfer_date=datetime.now()
+            )
+            db.add(transfer)
+            db.commit()
+            
+            await update.message.reply_text(
+                f"✅ تم تحويل {amount} نقطة!\n\n"
+                f"📤 إلى: {receiver.first_name or 'مستخدم'} ({target_user_id})\n"
+                f"💸 العمولة: {fee_amount} نقطة ({fee_percent}%)\n"
+                f"💰 الإجمالي: {total_deduct} نقطة\n"
+                f"⭐ رصيدك الجديد: {sender.points} نقطة"
+            )
+            
+            try:
+                await context.bot.send_message(
+                    target_user_id,
+                    f"🎉 استلمت تحويل نقاط!\n\n"
+                    f"📥 من: {sender.first_name or 'مستخدم'} ({user_id})\n"
+                    f"💰 المبلغ: {amount} نقطة\n"
+                    f"⭐ رصيدك الجديد: {receiver.points} نقطة"
+                )
+            except:
+                pass
+            
+        except ValueError:
+            await update.message.reply_text("❌ أدخل أرقام صحيحة!")
+        except Exception as e:
+            await update.message.reply_text(f"❌ حدث خطأ: {str(e)}")
+        finally:
+            db.close()
+    
     async def notify_admins_about_request(self, bot, request, user):
-        """إرسال إشعار للمشرفين بطلب جديد"""
-        db = self.db()
+        db = get_db()
         try:
             admins = db.query(User).filter_by(is_admin=True).all()
             
@@ -1475,7 +913,6 @@ class TelegramFundingBot:
 👥 عدد الأعضاء: {request.requested_members}
 💰 التكلفة: {request.points_cost} نقطة
 📢 الهدف: {request.target_channel}
-🕒 الوقت: {request.created_at.strftime('%Y-%m-%d %H:%M:%S')}
 """
                     
                     keyboard = [
@@ -1495,288 +932,273 @@ class TelegramFundingBot:
         finally:
             db.close()
     
-    # ==================== 🚀 نظام إضافة الأعضاء ====================
-    class MemberAdder:
-        """فئة لإضافة الأعضاء من المجموعات"""
+    async def handle_admin_commands(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        text = update.message.text
+        user_id = update.effective_user.id
+        db = get_db()
         
-        def __init__(self, bot):
-            self.bot = bot
-        
-        async def add_members_to_channel(self, request_id: int):
-            """إضافة أعضاء للقناة من المجموعات المصدر"""
-            db = get_db()
-            try:
-                request = db.query(FundingRequest).filter_by(id=request_id).first()
-                if not request or request.status != 'approved':
+        try:
+            user = db.query(User).filter_by(user_id=user_id).first()
+            if not user or not user.is_admin:
+                return
+            
+            if text.startswith('/add_admin'):
+                parts = text.split()
+                if len(parts) < 2:
+                    await update.message.reply_text("❌ صيغة: /add_admin @username أو user_id")
                     return
                 
-                user = db.query(User).filter_by(user_id=request.user_id).first()
-                if not user:
-                    return
-                
-                target_channel = request.target_channel
-                needed_members = request.requested_members
-                added_count = 0
-                
-                print(f"🚀 بدء إضافة {needed_members} عضو للقناة {target_channel}")
-                
-                # إعلام المستخدم بالبدء
-                try:
-                    await self.bot.send_message(
-                        user.user_id,
-                        f"🚀 بدأت عملية إضافة الأعضاء لطلبك #{request_id}\n"
-                        f"👥 العدد المطلوب: {needed_members} عضو"
-                    )
-                except:
-                    pass
-                
-                # الحصول على المجموعات المصدر النشطة
-                source_groups = db.query(GroupSource).filter_by(is_active=True).all()
-                
-                for group in source_groups:
-                    if added_count >= needed_members:
-                        break
-                    
-                    try:
-                        # جلب أعضاء المجموعة
-                        members_added = await self.add_members_from_group(
-                            group.group_id,
-                            target_channel,
-                            needed_members - added_count
-                        )
-                        
-                        added_count += members_added
-                        print(f"✅ تمت إضافة {members_added} عضو من مجموعة {group.group_title}")
-                        
-                        # تحديث حالة الطلب
-                        request.completed_members = added_count
-                        db.commit()
-                        
-                        # تأخير بين المجموعات
-                        await asyncio.sleep(5)
-                        
-                    except Exception as e:
-                        print(f"❌ خطأ في المجموعة {group.group_id}: {e}")
-                        continue
-                
-                # تحديث الحالة النهائية
-                if added_count > 0:
-                    request.status = 'completed'
-                    success_message = f"✅ تم الانتهاء من طلبك #{request.id}\n👥 تمت إضافة {added_count} عضو بنجاح!"
+                target = parts[1].replace('@', '')
+                if target.isdigit():
+                    target_user = db.query(User).filter_by(user_id=int(target)).first()
                 else:
-                    request.status = 'failed'
-                    success_message = f"❌ فشل طلبك #{request.id}\n⚠️ لم تتم إضافة أي عضو."
+                    target_user = db.query(User).filter_by(username=target).first()
                 
+                if not target_user:
+                    await update.message.reply_text("❌ المستخدم غير موجود!")
+                    return
+                
+                target_user.is_admin = True
+                db.commit()
+                await update.message.reply_text(f"✅ تمت ترقية {target_user.first_name} إلى مشرف")
+            
+            elif text.startswith('/ban'):
+                parts = text.split()
+                if len(parts) < 3:
+                    await update.message.reply_text("❌ صيغة: /ban @username السبب")
+                    return
+                
+                target = parts[1].replace('@', '')
+                reason = ' '.join(parts[2:])
+                
+                if target.isdigit():
+                    target_user = db.query(User).filter_by(user_id=int(target)).first()
+                else:
+                    target_user = db.query(User).filter_by(username=target).first()
+                
+                if not target_user:
+                    await update.message.reply_text("❌ المستخدم غير موجود!")
+                    return
+                
+                target_user.is_banned = True
+                target_user.ban_reason = reason
+                db.commit()
+                await update.message.reply_text(f"✅ تم حظر {target_user.first_name}\nالسبب: {reason}")
+            
+            elif text.startswith('/add_points'):
+                parts = text.split()
+                if len(parts) < 3:
+                    await update.message.reply_text("❌ صيغة: /add_points @username العدد")
+                    return
+                
+                target = parts[1].replace('@', '')
+                points = int(parts[2])
+                
+                if target.isdigit():
+                    target_user = db.query(User).filter_by(user_id=int(target)).first()
+                else:
+                    target_user = db.query(User).filter_by(username=target).first()
+                
+                if not target_user:
+                    await update.message.reply_text("❌ المستخدم غير موجود!")
+                    return
+                
+                target_user.points += points
+                db.commit()
+                await update.message.reply_text(f"✅ تم إضافة {points} نقطة لـ {target_user.first_name}")
+            
+            elif text.startswith('/maintenance'):
+                parts = text.split()
+                if len(parts) < 2:
+                    await update.message.reply_text("❌ صيغة: /maintenance on/off")
+                    return
+                
+                mode = parts[1].lower()
+                settings = db.query(SystemSettings).first()
+                if settings:
+                    if mode == 'on':
+                        settings.maintenance_mode = True
+                        await update.message.reply_text("✅ تم تفعيل وضع الصيانة")
+                    elif mode == 'off':
+                        settings.maintenance_mode = False
+                        await update.message.reply_text("✅ تم تعطيل وضع الصيانة")
+                    db.commit()
+            
+            elif text.startswith('/set_fee'):
+                parts = text.split()
+                if len(parts) < 2:
+                    await update.message.reply_text("❌ صيغة: /set_fee النسبة")
+                    return
+                
+                try:
+                    fee = int(parts[1])
+                    if fee < 0 or fee > 50:
+                        await update.message.reply_text("❌ النسبة بين 0 و 50!")
+                        return
+                    
+                    settings = db.query(SystemSettings).first()
+                    if settings:
+                        old_fee = settings.transfer_fee_percent
+                        settings.transfer_fee_percent = fee
+                        db.commit()
+                        await update.message.reply_text(f"✅ تم تغيير العمولة من {old_fee}% إلى {fee}%")
+                except ValueError:
+                    await update.message.reply_text("❌ أدخل رقم صحيح!")
+            
+            elif text.startswith('/add_support'):
+                parts = text.split()
+                if len(parts) < 2:
+                    await update.message.reply_text("❌ صيغة: /add_support @username")
+                    return
+                
+                target = parts[1].replace('@', '')
+                
+                try:
+                    user_info = await context.bot.get_chat(target)
+                    
+                    existing = db.query(SupportContact).filter_by(user_id=user_info.id).first()
+                    if existing:
+                        await update.message.reply_text("⚠️ هذا المستخدم مضاف بالفعل!")
+                        return
+                    
+                    support = SupportContact(
+                        user_id=user_info.id,
+                        username=user_info.username or user_info.first_name,
+                        added_by=user_id,
+                        added_at=datetime.now()
+                    )
+                    db.add(support)
+                    db.commit()
+                    
+                    await update.message.reply_text(f"✅ تم إضافة @{user_info.username or user_info.first_name} للدعم")
+                except Exception as e:
+                    await update.message.reply_text(f"❌ خطأ: {str(e)}")
+            
+            elif text.startswith('/add_channel'):
+                parts = text.split()
+                if len(parts) < 3:
+                    await update.message.reply_text("❌ صيغة: /add_channel @channel_id العنوان [mandatory/optional]")
+                    return
+                
+                channel_id = parts[1]
+                channel_title = ' '.join(parts[2:-1]) if len(parts) > 3 else parts[2]
+                is_mandatory = parts[-1].lower() == 'mandatory' if len(parts) > 3 else False
+                
+                existing = db.query(Channel).filter_by(channel_id=channel_id).first()
+                if existing:
+                    await update.message.reply_text("⚠️ هذه القناة مضافه بالفعل!")
+                    return
+                
+                channel = Channel(
+                    channel_id=channel_id,
+                    channel_title=channel_title,
+                    is_mandatory=is_mandatory,
+                    added_by_admin=user_id,
+                    created_at=datetime.now()
+                )
+                db.add(channel)
                 db.commit()
                 
-                # إعلام المستخدم
-                try:
-                    await self.bot.send_message(user.user_id, success_message)
-                except:
-                    pass
+                status = "إجبارية" if is_mandatory else "اختيارية"
+                await update.message.reply_text(f"✅ تم إضافة القناة {channel_title}\n📢 الحالة: {status}")
+            
+            elif text.startswith('/add_group'):
+                parts = text.split()
+                if len(parts) < 3:
+                    await update.message.reply_text("❌ صيغة: /add_group @group_id العنوان")
+                    return
                 
-                return added_count
+                group_id = parts[1]
+                group_title = ' '.join(parts[2:])
                 
-            except Exception as e:
-                print(f"❌ خطأ في إضافة الأعضاء: {e}")
-                return 0
-            finally:
-                db.close()
+                existing = db.query(GroupSource).filter_by(group_id=group_id).first()
+                if existing:
+                    await update.message.reply_text("⚠️ هذه المجموعة مضافه بالفعل!")
+                    return
+                
+                group = GroupSource(
+                    group_id=group_id,
+                    group_title=group_title,
+                    added_by_admin=user_id,
+                    created_at=datetime.now()
+                )
+                db.add(group)
+                db.commit()
+                
+                await update.message.reply_text(f"✅ تم إضافة المجموعة {group_title}")
         
-        async def add_members_from_group(self, source_group_id: str, target_channel: str, max_members: int):
-            """إضافة أعضاء من مجموعة مصدر معينة"""
-            added_count = 0
-            
-            try:
-                # جلب قائمة الأعضاء (بحدود معينة)
-                members = await self.get_group_members(source_group_id, max_members * 2)
-                
-                print(f"📋 جاري معالجة {len(members)} عضو من المجموعة {source_group_id}")
-                
-                for member in members:
-                    if added_count >= max_members:
-                        break
-                    
-                    try:
-                        # محاولة إضافة العضو للقناة
-                        await self.bot.add_chat_members(
-                            chat_id=target_channel,
-                            user_ids=[member.user.id]
-                        )
-                        
-                        added_count += 1
-                        print(f"✅ تمت إضافة العضو {member.user.id}")
-                        
-                        # تأخير بين كل إضافة لتجنب الحظر
-                        await asyncio.sleep(Config.ADD_MEMBERS_DELAY)
-                        
-                    except TelegramError as e:
-                        if "USER_PRIVACY_RESTRICTED" in str(e):
-                            print(f"⚠️ العضو {member.user.id} مقيد الخصوصية")
-                            continue
-                        elif "USER_ALREADY_PARTICIPANT" in str(e):
-                            print(f"✅ العضو {member.user.id} موجود بالفعل")
-                            added_count += 1
-                        elif "USER_NOT_MUTUAL_CONTACT" in str(e):
-                            print(f"⚠️ العضو {member.user.id} ليس جهة اتصال متبادلة")
-                        elif "CHAT_ADMIN_REQUIRED" in str(e):
-                            print(f"❌ البوت ليس أدمن في القناة الهدف")
-                            break
-                        else:
-                            print(f"⚠️ خطأ في إضافة العضو {member.user.id}: {e}")
-                        continue
-                    except Exception as e:
-                        print(f"❌ خطأ غير متوقع: {e}")
-                        continue
-            
-            except Exception as e:
-                print(f"❌ خطأ في جلب أعضاء المجموعة {source_group_id}: {e}")
-            
-            return added_count
-        
-        async def get_group_members(self, group_id: str, limit: int = 100):
-            """جلب قائمة أعضاء المجموعة"""
-            members = []
-            
-            try:
-                # جلب الأعضاء من المجموعة
-                async for member in self.bot.get_chat_members(group_id):
-                    if len(members) >= limit:
-                        break
-                    
-                    # استبعاد البوتات والمشرفين
-                    if not member.user.is_boot and member.status == 'member':
-                        members.append(member)
-            
-            except Exception as e:
-                print(f"❌ خطأ في جلب أعضاء المجموعة: {e}")
-            
-            return members
-    
-    # ==================== 🔄 معالجة الطلبات في الخلفية ====================
-    async def process_pending_requests(self, bot):
-        """معالجة طلبات التمويل المعلقة في الخلفية"""
-        adder = self.MemberAdder(bot)
-        print("🔄 بدء معالج طلبات التمويل...")
-        
-        while True:
-            try:
-                db = get_db()
-                
-                # البحث عن طلبات معتمدة تحتاج معالجة
-                pending_requests = db.query(FundingRequest).filter_by(status='approved').all()
-                
-                print(f"📋 وجدت {len(pending_requests)} طلب معتمد للمعالجة")
-                
-                for request in pending_requests:
-                    print(f"⚙️ معالجة الطلب #{request.id}")
-                    await adder.add_members_to_channel(request.id)
-                
-                db.close()
-                
-                # انتظار 5 دقائق بين كل جولة
-                await asyncio.sleep(300)
-                
-            except Exception as e:
-                print(f"❌ خطأ في معالجة الطلبات: {e}")
-                await asyncio.sleep(60)
+        finally:
+            db.close()
     
     # ==================== 🚀 تشغيل البوت ====================
     async def run(self):
-        """تشغيل البوت"""
-        # التحقق من التوكن
         if self.config.BOT_TOKEN == "ضع_توكن_البوت_هنا":
-            print("❌ خطأ: لم تقم بوضع توكن البوت!")
-            print("🔧 قم بتعديل التوكن في الكود")
+            print("❌ ضع توكن البوت!")
             return
         
-        # تهيئة قاعدة البيانات
         print("🔄 جاري تهيئة قاعدة البيانات...")
         if not init_database():
             print("❌ فشل تهيئة قاعدة البيانات!")
             return
         
-        # بدء خدمات البقاء نشط المتقدمة
         self.keep_alive.start_web_server()
-        print("✅ تم تشغيل خدمات البقاء نشط المتقدمة")
+        print("✅ خادم ويب يعمل")
         
-        # فحص حالة البوت
-        print("🔍 فحص حالة البوت...")
-        await self.keep_alive.check_bot_status()
-        
-        # إنشاء تطبيق البوت
         print("🤖 جاري إنشاء تطبيق البوت...")
         self.application = Application.builder().token(self.config.BOT_TOKEN).build()
         
-        # إضافة المعالجات
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CallbackQueryHandler(self.button_handler))
-        
-        # معالجة الرسائل النصية
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         
-        # بدء البوت
         print("🚀 جاري تشغيل البوت...")
-        print(f"👑 المدير الرئيسي: {self.config.ADMIN_ID}")
+        print(f"👑 المدير: {self.config.ADMIN_ID}")
         
-        # الحصول على معلومات البوت
         try:
             bot_info = await self.application.bot.get_me()
             print(f"🤖 اسم البوت: @{bot_info.username}")
-            print(f"📛 اسم العرض: {bot_info.first_name}")
-        except Exception as e:
-            print(f"⚠️ خطأ في الحصول على معلومات البوت: {e}")
-        
-        # إرسال رسالة بدء التشغيل للمدير
-        try:
+            
             await self.application.bot.send_message(
                 Config.ADMIN_ID,
-                f"🚀 البوت بدأ التشغيل بنجاح!\n"
-                f"⏰ الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"🤖 البوت: @{bot_info.username if 'bot_info' in locals() else 'غير معروف'}\n\n"
-                f"✅ النظام يعمل الآن 24/7 مع نظام البقاء نشط المتقدم."
+                f"🚀 البوت بدأ التشغيل!\n"
+                f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"🤖 @{bot_info.username}\n\n"
+                f"✅ النظام يعمل الآن 24/7"
             )
         except Exception as e:
             print(f"⚠️ لم يتم إرسال رسالة البداية: {e}")
         
-        # بدء معالجة الطلبات في الخلفية
-        asyncio.create_task(self.process_pending_requests(self.application.bot))
+        self.keep_alive.start_ping_scheduler(self.application.bot)
         
-        # بدء البوت
-        self.is_running = True
         print("✅ البوت يعمل الآن بنجاح!")
-        print("⏰ نظام البقاء نشط يعمل (إشارة كل دقيقة)")
+        print("⏰ نظام ping يعمل (كل دقيقتين)")
         
-        # بدء الاستماع للتحديثات
         await self.application.run_polling(allowed_updates="all")
 
 # ==================== 📦 التشغيل الرئيسي ====================
 if __name__ == '__main__':
-    # إعداد التسجيل
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
     )
     
-    # إنشاء وتشغيل البوت
-    bot = TelegramFundingBot()
+    bot = TelegramBot()
     
     try:
         print("=" * 50)
-        print("🤖 بوت تمويل القنوات - النسخة النهائية")
-        print("👑 مطور خصيصاً للمدير: 6130994941")
-        print("⏰ يعمل 24/7 مع نظام بقاء نشط متقدم")
+        print("🤖 بوت تمويل القنوات")
+        print("👑 المدير: 6130994941")
+        print("⏰ يعمل 24/7")
         print("=" * 50)
         
         asyncio.run(bot.run())
     except KeyboardInterrupt:
-        print("\n👋 تم إيقاف البوت يدوياً")
+        print("\n👋 تم إيقاف البوت")
     except Exception as e:
-        print(f"❌ خطأ غير متوقع: {e}")
-        print("🔄 جاري إعادة المحاولة خلال 10 ثواني...")
+        print(f"❌ خطأ: {e}")
+        print("🔄 جاري إعادة التشغيل خلال 10 ثواني...")
         time.sleep(10)
-        # محاولة إعادة التشغيل تلقائياً
         try:
             asyncio.run(bot.run())
         except:
-            print("❌ فشل إعادة التشغيل، يرجى التحقق من السيرفر")
+            print("❌ فشل إعادة التشغيل")
